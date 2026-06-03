@@ -2,35 +2,61 @@
 
 IT用語を4択クイズ形式で学習するWebアプリです。
 
-## 必要なもの
+## 事前に必要なもの
 
-- [Node.js](https://nodejs.org/) v18以上
-- [Docker](https://www.docker.com/) (PostgreSQL用)
+以下の2つをインストールしてください。
 
-## セットアップ
+| ツール | 確認コマンド | ダウンロード |
+|---|---|---|
+| Node.js v18以上 | `node -v` | https://nodejs.org/ |
+| Docker | `docker -v` | https://www.docker.com/ |
+
+---
+
+## セットアップ手順
+
+### 1. リポジトリをクローン
 
 ```bash
-# 1. リポジトリをクローン
 git clone https://github.com/lig-kumagai-ryuji/IT-words-.git
 cd IT-words-
+```
 
-# 2. パッケージをインストール
+### 2. パッケージをインストール
+
+```bash
 npm install
+```
 
-# 3. 環境変数を設定
+### 3. 環境変数を設定
+
+```bash
 cp .env.example .env
+```
 
-# 4. PostgreSQLを起動
+### 4. PostgreSQL（データベース）を起動
+
+```bash
 docker compose up -d
+```
 
-# 5. DBのセットアップ（マイグレーション + データ投入）
+### 5. DBのセットアップ（初回のみ）
+
+```bash
 npm run setup
+```
 
-# 6. 開発サーバーを起動
+マイグレーションとデータ投入が自動で行われます。
+
+### 6. 開発サーバーを起動
+
+```bash
 npm run dev
 ```
 
-ブラウザで http://localhost:3000 を開くと使えます。
+ブラウザで **http://localhost:3000** を開くと使えます。
+
+---
 
 ## 主なコマンド
 
@@ -40,6 +66,8 @@ npm run dev
 | `npm run setup` | DBマイグレーション＋データ投入（初回のみ） |
 | `docker compose up -d` | PostgreSQL起動 |
 | `docker compose down` | PostgreSQL停止 |
+
+---
 
 ## 機能
 
