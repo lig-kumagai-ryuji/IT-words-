@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// 「〇〇とは、…」の先頭部分を削除して答えがバレないようにする
+function stripLeadingTerm(definition: string): string {
+  return definition.replace(/^.+?とは[、，,]?\s*/, '')
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const mode = searchParams.get('mode') ?? 'term-to-def'
@@ -25,10 +30,10 @@ export async function GET(request: Request) {
     question:
       mode === 'term-to-def'
         ? { id: correctWord.id, text: correctWord.term }
-        : { id: correctWord.id, text: correctWord.definition },
+        : { id: correctWord.id, text: stripLeadingTerm(correctWord.definition) },
     choices: choices.map((w) => ({
       id: w.id,
-      text: mode === 'term-to-def' ? w.definition : w.term,
+      text: mode === 'term-to-def' ? stripLeadingTerm(w.definition) : w.term,
     })),
     correctId: correctWord.id,
   })
