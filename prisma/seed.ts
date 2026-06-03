@@ -9,11 +9,7 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
-  const csvPath = path.join(
-    process.env.HOME || '',
-    'Downloads',
-    'IT単語シート のコピー - 出題範囲１.csv',
-  )
+  const csvPath = path.join(__dirname, 'data', 'words.csv')
   const content = fs.readFileSync(csvPath, 'utf-8')
 
   const records = parse(content, {
