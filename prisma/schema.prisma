@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Word {
+  id         Int      @id @default(autoincrement())
+  no         Int      @unique
+  term       String
+  definition String   @db.Text
+  createdAt  DateTime @default(now())
+}
+
+model QuizSession {
+  id        Int          @id @default(autoincrement())
+  score     Int          @default(0)
+  total     Int          @default(0)
+  createdAt DateTime     @default(now())
+  answers   QuizAnswer[]
+}
+
+model QuizAnswer {
+  id        Int         @id @default(autoincrement())
+  session   QuizSession @relation(fields: [sessionId], references: [id])
+  sessionId Int
+  wordId    Int
+  correct   Boolean
+  createdAt DateTime    @default(now())
+}
