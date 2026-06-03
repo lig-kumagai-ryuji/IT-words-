@@ -20,10 +20,11 @@ type QuizData = {
 }
 
 type QuizState = 'answering' | 'correct' | 'wrong'
-type Screen = 'start' | 'quiz' | 'result'
+type Screen = 'start' | 'quiz' | 'result' | 'error'
 
 export default function QuizCard() {
   const [screen, setScreen] = useState<Screen>('start')
+  const [errorMessage, setErrorMessage] = useState('')
   const [mode, setMode] = useState<'term-to-def' | 'def-to-term'>('term-to-def')
   const [questionLimit, setQuestionLimit] = useState(10)
   const [quiz, setQuiz] = useState<QuizData | null>(null)
@@ -34,39 +35,70 @@ export default function QuizCard() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
 
+  const showError = useCallback((msg: string) => {
+    setErrorMessage(msg)
+    setScreen('error')
+    setLoading(false)
+  }, [])
+
   const startSession = useCallback(
     async (selectedMode: 'term-to-def' | 'def-to-term', limit: number) => {
       setLoading(true)
       setMode(selectedMode)
       setQuestionLimit(limit)
-      const res = await fetch('/api/quiz/session', { method: 'POST' })
-      const { sessionId: sid } = await res.json()
-      setSessionId(sid)
       setScore(0)
       setTotal(0)
+
+      try {
+        const sessionRes = await fetch('/api/quiz/session', { method: 'POST' })
+        if (!sessionRes.ok) throw new Error(`セッション作成に失敗しました (${sessionRes.status})`)
+        const { sessionId: sid } = await sessionRes.json()
+        if (!sid) throw new Error('セッションIDが取得できませんでした')
+        setSessionId(sid)
+      } catch (e) {
+        showError(
+          `データベースへの接続に失敗しました。\n\n` +
+          `以下を確認してください:\n` +
+          `1. docker compose up -d を実行済みか\n` +
+          `2. npm run setup を実行済みか\n\n` +
+          `詳細: ${e instanceof Error ? e.message : String(e)}`,
+        )
+        return
+      }
+
       setScreen('quiz')
-      await fetchQuestion(selectedMode, setQuiz, setQuizState, setSelectedId, setLoading)
+
+      const ok = await fetchQuestion(selectedMode, setQuiz, setQuizState, setSelectedId, setLoading)
+      if (!ok) {
+        showError(
+          `問題の取得に失敗しました。\n\n` +
+          `npm run setup でデータが正しく投入されているか確認してください。`,
+        )
+      }
     },
-    [],
+    [showError],
   )
 
   const nextQuestion = useCallback(async () => {
-    await fetchQuestion(mode, setQuiz, setQuizState, setSelectedId, setLoading)
-  }, [mode])
+    const ok = await fetchQuestion(mode, setQuiz, setQuizState, setSelectedId, setLoading)
+    if (!ok) showError('次の問題の取得に失敗しました。')
+  }, [mode, showError])
 
   const handleAnswer = useCallback(
     async (choiceId: number) => {
-      if (quizState !== 'answering' || !quiz || sessionId === null) return
+      if (quizState !== 'answering' || !quiz || !sessionId) return
       setSelectedId(choiceId)
       const correct = choiceId === quiz.correctId
       setQuizState(correct ? 'correct' : 'wrong')
       if (correct) setScore((s) => s + 1)
       setTotal((t) => t + 1)
-      await fetch('/api/quiz/answer', {
+
+      // 回答記録は失敗してもクイズは続行する
+      fetch('/api/quiz/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, wordId: quiz.correctId, correct }),
-      })
+      }).catch(() => {})
     },
     [quizState, quiz, sessionId],
   )
@@ -84,10 +116,15 @@ export default function QuizCard() {
     setQuiz(null)
     setScore(0)
     setTotal(0)
+    setSessionId(null)
   }, [])
 
   if (screen === 'start') {
     return <StartScreen onStart={startSession} />
+  }
+
+  if (screen === 'error') {
+    return <ErrorScreen message={errorMessage} onBack={restart} />
   }
 
   if (screen === 'result') {
@@ -211,6 +248,26 @@ function StartScreen({
   )
 }
 
+function ErrorScreen({ message, onBack }: { message: string; onBack: () => void }) {
+  return (
+    <div className="w-full max-w-md mx-auto px-4 text-center">
+      <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="text-4xl mb-4">⚠️</div>
+        <h2 className="text-xl font-bold text-red-600 mb-4">エラーが発生しました</h2>
+        <pre className="text-left text-sm text-gray-600 bg-gray-50 rounded-xl p-4 mb-6 whitespace-pre-wrap">
+          {message}
+        </pre>
+        <button
+          onClick={onBack}
+          className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl transition-colors"
+        >
+          ← トップに戻る
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ScoreBar({
   score,
   current,
@@ -274,7 +331,9 @@ function ChoiceButton({
     >
       <span className="text-sm text-gray-800 leading-relaxed">{choice.text}</span>
       {answered && isCorrect && <span className="ml-2 text-green-600 font-bold">✓</span>}
-      {answered && isSelected && !isCorrect && <span className="ml-2 text-red-500 font-bold">✗</span>}
+      {answered && isSelected && !isCorrect && (
+        <span className="ml-2 text-red-500 font-bold">✗</span>
+      )}
     </button>
   )
 }
@@ -302,10 +361,13 @@ function ResultScreen({
 }) {
   const pct = Math.round((score / total) * 100)
   const rank =
-    pct >= 90 ? { label: '優秀！', color: 'text-yellow-500' }
-    : pct >= 70 ? { label: '合格', color: 'text-green-600' }
-    : pct >= 50 ? { label: 'もう少し', color: 'text-blue-500' }
-    : { label: '要復習', color: 'text-red-500' }
+    pct >= 90
+      ? { label: '優秀！', color: 'text-yellow-500' }
+      : pct >= 70
+        ? { label: '合格', color: 'text-green-600' }
+        : pct >= 50
+          ? { label: 'もう少し', color: 'text-blue-500' }
+          : { label: '要復習', color: 'text-red-500' }
 
   return (
     <div className="w-full max-w-md mx-auto px-4 text-center">
@@ -344,14 +406,19 @@ async function fetchQuestion(
   setQuizState: (s: QuizState) => void,
   setSelectedId: (id: number | null) => void,
   setLoading: (b: boolean) => void,
-) {
+): Promise<boolean> {
   setLoading(true)
   try {
     const res = await fetch(`/api/quiz/question?mode=${mode}`)
+    if (!res.ok) return false
     const data = await res.json()
+    if (data.error || !data.question || !data.choices) return false
     setQuiz(data)
     setQuizState('answering')
     setSelectedId(null)
+    return true
+  } catch {
+    return false
   } finally {
     setLoading(false)
   }
