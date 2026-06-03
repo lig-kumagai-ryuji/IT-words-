@@ -24,17 +24,24 @@ function processDefinition(definition: string, termToMask: string): string {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const mode = searchParams.get('mode') ?? 'term-to-def'
+  const excludeParam = searchParams.get('exclude') ?? ''
+  const excludeIds = excludeParam
+    .split(',')
+    .map(Number)
+    .filter((n) => !isNaN(n) && n > 0)
 
   const allWords = await prisma.word.findMany()
   if (allWords.length < 4) {
     return NextResponse.json({ error: 'Not enough words' }, { status: 400 })
   }
 
-  const correctIndex = Math.floor(Math.random() * allWords.length)
-  const correctWord = allWords[correctIndex]
+  // 出題済みを除いた候補から正解を選ぶ
+  const remaining = allWords.filter((w) => !excludeIds.includes(w.id))
+  const pool = remaining.length >= 1 ? remaining : allWords
+  const correctWord = pool[Math.floor(Math.random() * pool.length)]
 
   const wrongWords = allWords
-    .filter((_, i) => i !== correctIndex)
+    .filter((w) => w.id !== correctWord.id)
     .sort(() => Math.random() - 0.5)
     .slice(0, 3)
 

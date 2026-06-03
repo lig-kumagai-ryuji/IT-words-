@@ -34,6 +34,7 @@ export default function QuizCard() {
   const [score, setScore] = useState(0)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [usedIds, setUsedIds] = useState<number[]>([])
 
   const showError = useCallback((msg: string) => {
     setErrorMessage(msg)
@@ -66,9 +67,10 @@ export default function QuizCard() {
         return
       }
 
+      setUsedIds([])
       setScreen('quiz')
 
-      const ok = await fetchQuestion(selectedMode, setQuiz, setQuizState, setSelectedId, setLoading)
+      const ok = await fetchQuestion(selectedMode, [], setQuiz, setQuizState, setSelectedId, setLoading, setUsedIds)
       if (!ok) {
         showError(
           `問題の取得に失敗しました。\n\n` +
@@ -80,9 +82,9 @@ export default function QuizCard() {
   )
 
   const nextQuestion = useCallback(async () => {
-    const ok = await fetchQuestion(mode, setQuiz, setQuizState, setSelectedId, setLoading)
+    const ok = await fetchQuestion(mode, usedIds, setQuiz, setQuizState, setSelectedId, setLoading, setUsedIds)
     if (!ok) showError('次の問題の取得に失敗しました。')
-  }, [mode, showError])
+  }, [mode, usedIds, showError])
 
   const handleAnswer = useCallback(
     async (choiceId: number) => {
@@ -117,6 +119,7 @@ export default function QuizCard() {
     setScore(0)
     setTotal(0)
     setSessionId(null)
+    setUsedIds([])
   }, [])
 
   if (screen === 'start') {
@@ -402,20 +405,24 @@ function ResultScreen({
 
 async function fetchQuestion(
   mode: string,
+  usedIds: number[],
   setQuiz: (q: QuizData | null) => void,
   setQuizState: (s: QuizState) => void,
   setSelectedId: (id: number | null) => void,
   setLoading: (b: boolean) => void,
+  setUsedIds: (fn: (prev: number[]) => number[]) => void,
 ): Promise<boolean> {
   setLoading(true)
   try {
-    const res = await fetch(`/api/quiz/question?mode=${mode}`)
+    const exclude = usedIds.length > 0 ? `&exclude=${usedIds.join(',')}` : ''
+    const res = await fetch(`/api/quiz/question?mode=${mode}${exclude}`)
     if (!res.ok) return false
     const data = await res.json()
     if (data.error || !data.question || !data.choices) return false
     setQuiz(data)
     setQuizState('answering')
     setSelectedId(null)
+    setUsedIds((prev) => [...prev, data.correctId])
     return true
   } catch {
     return false
