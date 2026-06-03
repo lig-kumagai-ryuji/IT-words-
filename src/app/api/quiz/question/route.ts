@@ -1,9 +1,24 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// 「〇〇とは、…」の先頭部分を削除して答えがバレないようにする
+// 「〇〇とは、…」の先頭部分を削除する
 function stripLeadingTerm(definition: string): string {
   return definition.replace(/^.+?とは[、，,]?\s*/, '')
+}
+
+// 単語名（「/」区切りの別名も含む）を■■■に置換する
+function maskTerm(text: string, term: string): string {
+  const variants = term.split('/').map((v) => v.trim()).filter(Boolean)
+  let result = text
+  for (const variant of variants) {
+    const escaped = variant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    result = result.replace(new RegExp(escaped, 'g'), '■■■')
+  }
+  return result
+}
+
+function processDefinition(definition: string, termToMask: string): string {
+  return maskTerm(stripLeadingTerm(definition), termToMask)
 }
 
 export async function GET(request: Request) {
@@ -30,10 +45,15 @@ export async function GET(request: Request) {
     question:
       mode === 'term-to-def'
         ? { id: correctWord.id, text: correctWord.term }
-        : { id: correctWord.id, text: stripLeadingTerm(correctWord.definition) },
+        : { id: correctWord.id, text: processDefinition(correctWord.definition, correctWord.term) },
     choices: choices.map((w) => ({
       id: w.id,
-      text: mode === 'term-to-def' ? stripLeadingTerm(w.definition) : w.term,
+      // term-to-def: 全選択肢から問題の単語名を伏せる（他の定義文中に登場することもあるため）
+      // def-to-term: 単語名をそのまま表示
+      text:
+        mode === 'term-to-def'
+          ? processDefinition(w.definition, correctWord.term)
+          : w.term,
     })),
     correctId: correctWord.id,
   })
