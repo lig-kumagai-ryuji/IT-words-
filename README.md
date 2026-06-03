@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IT単語クイズ
 
-## Getting Started
+IT用語を4択クイズ形式で学習するWebアプリです。
 
-First, run the development server:
+## 機能
+
+- 4択クイズ（単語→意味 / 意味→単語 の2モード）
+- 出題数選択（10〜50問）
+- スコア・正答率・プログレスバーのリアルタイム表示
+- 結果画面（ランク判定）
+
+## 技術スタック
+
+- **フロントエンド**: Next.js 16 (App Router) + TypeScript + Tailwind CSS
+- **バックエンド**: Next.js API Routes
+- **DB**: PostgreSQL + Prisma 7
+- **インフラ**: Docker Compose
+
+## セットアップ
 
 ```bash
+npm install
+docker compose up -d
+npx prisma migrate dev
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`http://localhost:3000` でアクセスできます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 環境変数
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`.env` ファイルを作成してください：
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+DATABASE_URL="postgresql://postgres:password@localhost:5432/it_words?schema=public"
+```
