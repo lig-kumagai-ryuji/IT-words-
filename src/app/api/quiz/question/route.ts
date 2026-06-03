@@ -48,11 +48,12 @@ export async function GET(request: Request) {
         : { id: correctWord.id, text: processDefinition(correctWord.definition, correctWord.term) },
     choices: choices.map((w) => ({
       id: w.id,
-      // term-to-def: 全選択肢から問題の単語名を伏せる（他の定義文中に登場することもあるため）
+      // term-to-def: 各選択肢がそれぞれ自分自身の単語名を伏せる
+      //   → 全選択肢に同じように■■■が入るため正解が目立たない
       // def-to-term: 単語名をそのまま表示
       text:
         mode === 'term-to-def'
-          ? processDefinition(w.definition, correctWord.term)
+          ? processDefinition(w.definition, w.term)
           : w.term,
     })),
     correctId: correctWord.id,
